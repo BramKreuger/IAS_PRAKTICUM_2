@@ -1,0 +1,48 @@
+extensions [table]
+globals [colorlist index score stratcolor stratlist strategy stratsetsum payoff]
+
+to setup
+  clear-all
+  stratset
+  patchset
+  reset-ticks
+end
+
+to go
+  stratpopulation
+  tick
+end
+
+to stratpopulation
+  
+end
+
+to patchset  ; the pre-set population settings for the patches
+  foreach index [ [p] -> ask n-of (count patches * (item p stratlist / stratsetsum)) patches with [pcolor = black] [
+     set pcolor item p colorlist ] ]
+end
+
+
+
+to stratset
+  set stratcolor (list ; list + round brackets so that non-literal values (variables) are accepted within lists.
+    (list always-cooperate green) ; with this, the foreach-statement in patchset was made possible.
+    (list always-defect red)
+    (list play-randomly gray)
+    (list unforgiving 102)
+    (list tit-for-tat violet)
+    (list Pavlov magenta))
+  set stratlist map [ [x] ->  item 0 x] stratcolor
+  set colorlist map [ [x] -> item 1 x] stratcolor
+  set index n-values length stratlist [ [x] -> x ]
+  set payoff (list (list CC-payoff-reward CD-payoff-sucker)(list DC-payoff-temptation DD-payoff-punishment))
+  set stratsetsum ((always-cooperate + always-defect + play-randomly + unforgiving + tit-for-tat + Pavlov)) ; to ensure that the pre-set populations add up to 100%
+  set payoff (list (list CC-payoff-reward CD-payoff-sucker) (list DC-payoff-temptation DD-payoff-punishment))
+end
+
+
+
+
+; voor elke strategie een percentage kiezen (wordt P1)
+; volgende aandeel strategie = (Pi * Si)/(Sum(Pi * Si))
+; 
