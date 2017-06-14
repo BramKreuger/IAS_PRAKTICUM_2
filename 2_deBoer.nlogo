@@ -1,11 +1,17 @@
 extensions [table]
-globals [colorlist index score stratcolor stratlist strategy stratsetsum payoff]
+globals [
+  colorlist index stratcolor patchcount stratlist ; all lists
+  payoff stratsum totalscore scoretable]
+patches-own [score play]
 
 to setup
-  clear-all
+  clear-output
+  clear-all-plots
+  clear-patches
   stratset
   patchset
   reset-ticks
+  countpatches
 end
 
 to go
@@ -17,39 +23,49 @@ to stratpopulation
 
 end
 
+to countpatches
+  foreach index [ [x] -> output-show word (item 0 item x stratcolor) (count patches with [pcolor = item 2 item x stratcolor ]) ]
+end
+
+to set-equal ; snelle gelijkmaker voor tijdens programmeren - NIET IN EINDPRODUCT
+  set always-cooperate precision (100 / length stratlist) 2
+    set always-defect precision(100 / length stratlist) 2
+    set play-randomly precision (100 / length stratlist) 2
+    set unforgiving precision(100 / length stratlist) 2
+    set tit-for-tat precision (100 / length stratlist) 2
+    set Pavlov precision (100 / length stratlist) 2
+end
+
 to patchset  ; the pre-set population settings for the patches
-
-  let stratpercentage table:make
-  table:put stratpercentage "always-cooperate" always-cooperate
-  table:put stratpercentage "always-defect"    always-defect
-  table:put stratpercentage "play-randomly"    play-randomly
-  table:put stratpercentage "unforgiving"      unforgiving
-  table:put stratpercentage "tit-for-tat"      tit-for-tat
-  table:put stratpercentage "Pavlov"           Pavlov
-  print table:keys stratpercentage
-
-  foreach index [ [p] -> ask n-of (count patches * (table:get stratpercentage item p stratlist) / stratsetsum) patches with [pcolor = black] [
-     set pcolor item p colorlist
-    ]
+  ; foreach stratlist [ [p] -> replace-item p stratlist (p / sum stratlist)]
+  if not (abs(stratsum - 100) <= .001)  [
+    set always-cooperate precision (always-cooperate / stratsum * 100) 2
+    set always-defect precision(always-defect / stratsum * 100) 2
+    set play-randomly precision (play-randomly / stratsum * 100) 2
+    set unforgiving precision(unforgiving / stratsum * 100) 2
+    set tit-for-tat precision (tit-for-tat / stratsum * 100) 2
+    set Pavlov precision (Pavlov / stratsum * 100) 2
   ]
+
+  set stratsum sum stratlist
+  foreach index [ [p] -> ask n-of (count patches * (item p stratlist / sum stratlist)) patches with [pcolor = black] [
+     set pcolor item p colorlist] ]
+
 end
 
 to stratset
-  set stratcolor [
-    ["always-cooperate" green]
-    ["always-defect" red]
-    ["play-randomly" gray]
-    ["unforgiving" 102]
-    ["tit-for-tat" violet]
-    ["Pavlov" magenta]
-  ]
-
-  set stratlist map [ [x] ->  item 0 x] stratcolor
-  set colorlist map [ [x] -> item 1 x] stratcolor
+  set stratcolor (list ; list + round brackets so that non-literal values (variables) are accepted within lists.
+    (list "always-cooperate: " always-cooperate green) ; with this, the foreach-statement in patchset was made possible.
+    (list "always-defect: " always-defect red)
+    (list "play-randomly: " play-randomly gray)
+    (list "unforgiving: " unforgiving 102)
+    (list "tit-for-tat: " tit-for-tat violet)
+    (list "Pavlov: " Pavlov magenta))
+  set stratlist map [ [x] ->  item 1 x] stratcolor
+  set colorlist map [ [x] -> item 2 x] stratcolor
   set index n-values length stratlist [ [x] -> x ]
+  set stratsum sum stratlist
   set payoff (list (list CC-payoff-reward CD-payoff-sucker)(list DC-payoff-temptation DD-payoff-punishment))
-  set stratsetsum ((always-cooperate + always-defect + play-randomly + unforgiving + tit-for-tat + Pavlov)) ; to ensure that the pre-set populations add up to 100%
-  set payoff (list (list CC-payoff-reward CD-payoff-sucker) (list DC-payoff-temptation DD-payoff-punishment))
 end
 
 
@@ -87,9 +103,9 @@ ticks
 30.0
 
 BUTTON
-33
+32
 24
-96
+95
 57
 NIL
 setup
@@ -129,7 +145,7 @@ always-cooperate
 always-cooperate
 0
 100
-36.3
+37.54
 .1
 1
 %
@@ -144,7 +160,7 @@ always-defect
 always-defect
 0
 100
-1.9
+13.28
 .1
 1
 %
@@ -159,7 +175,7 @@ play-randomly
 play-randomly
 0
 100
-0.6
+24.66
 .1
 1
 %
@@ -174,7 +190,7 @@ Pavlov
 Pavlov
 0
 100
-22.3
+11.14
 .1
 1
 %
@@ -189,7 +205,7 @@ unforgiving
 unforgiving
 0
 100
-19.7
+11.71
 .1
 1
 %
@@ -204,7 +220,7 @@ tit-for-tat
 tit-for-tat
 0
 100
-11.5
+1.67
 .1
 1
 %
@@ -292,6 +308,13 @@ PENS
 "unforgiving" 1.0 0 -15390905 true "" "plot count patches with [pcolor = 102]  / count patches"
 "tit-for-tat" 1.0 0 -8630108 true "" "plot count patches with [pcolor = violet]  / count patches"
 "Pavlof" 1.0 0 -6459832 true "" "plot count patches with [pcolor = brown]  / count patches"
+
+OUTPUT
+661
+336
+1096
+432
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
