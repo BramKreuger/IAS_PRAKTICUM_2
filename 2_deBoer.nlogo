@@ -1,8 +1,8 @@
 extensions [table]
 globals [
-  colorlist index stratcolor patchcount stratlist ; all lists
-  payoff stratsum totalscore scoretable]
-patches-own [score play]
+  colorlist index stratcolor stratlist ; all lists
+  payoff stratsum scoretable totalscore]
+patches-own [meanscore strategy]
 
 to setup
   clear-output
@@ -10,8 +10,8 @@ to setup
   clear-patches
   stratset
   patchset
+  set scoretable map [ [s] -> score-row-for s] stratlist
   reset-ticks
-  countpatches
 end
 
 to go
@@ -20,53 +20,113 @@ to go
 end
 
 to stratpopulation
-
+  ask patches
+  [
+    set meanscore mean [item strategy item ([strategy] of myself) scoretable] of neighbors
+  ]
+   ask patches
+  [
+    let winner one-of neighbors with-max [meanscore]
+    set strategy [strategy] of winner
+    set pcolor item strategy colorlist
+  ]
 end
 
-to countpatches
-  foreach index [ [x] -> output-show word (item 0 item x stratcolor) (count patches with [pcolor = item 2 item x stratcolor ]) ]
-end
-
-to set-equal ; snelle gelijkmaker voor tijdens programmeren - NIET IN EINDPRODUCT
-  set always-cooperate precision (100 / length stratlist) 2
-    set always-defect precision(100 / length stratlist) 2
-    set play-randomly precision (100 / length stratlist) 2
-    set unforgiving precision(100 / length stratlist) 2
-    set tit-for-tat precision (100 / length stratlist) 2
-    set Pavlov precision (100 / length stratlist) 2
+to set-equal
+  foreach stratlist [[s] -> run (word "set start-" s " precision (100 / length stratlist) 2")]
 end
 
 to patchset  ; the pre-set population settings for the patches
   ; foreach stratlist [ [p] -> replace-item p stratlist (p / sum stratlist)]
-  if not (abs(stratsum - 100) <= .001)  [
-    set always-cooperate precision (always-cooperate / stratsum * 100) 2
-    set always-defect precision(always-defect / stratsum * 100) 2
-    set play-randomly precision (play-randomly / stratsum * 100) 2
-    set unforgiving precision(unforgiving / stratsum * 100) 2
-    set tit-for-tat precision (tit-for-tat / stratsum * 100) 2
-    set Pavlov precision (Pavlov / stratsum * 100) 2
+  set stratsum sum map [[s] -> runresult (word "start-" s)] stratlist
+  if not (abs(stratsum - 1) <= .001)
+  [
+    foreach stratlist [[s] -> run (word "set start-" s " precision (start-" s " / stratsum * 100) 2")]
+    set stratsum sum map [[s] -> runresult (word "start-" s)] stratlist
   ]
+  foreach index [ [p] -> run (word "ask n-of (count patches * (start-" item p stratlist " / stratsum)) patches with [pcolor = black]"
+  "[set strategy " item p index
+  " set pcolor " item p colorlist"]")]
 
-  set stratsum sum stratlist
-  foreach index [ [p] -> ask n-of (count patches * (item p stratlist / sum stratlist)) patches with [pcolor = black] [
-     set pcolor item p colorlist] ]
+end
 
+to-report score-row-for [s1]
+  report map [ [s2] -> score-entry-for s1 s2] stratlist
+end
+
+to-report score-entry-for [s1 s2]
+  report precision (mean (n-values iterations [score-for s1 s2])) 2
+end
+
+to-report score-for [s1 s2]
+  let my-history []
+  let your-history []
+  set totalscore 0
+  repeat rounds
+  [
+    let my-action play s1 my-history your-history
+    let your-action play s2 my-history your-history
+    let score item your-action (item my-action payoff)
+    set totalscore totalscore + score
+    set my-history fput my-action my-history
+    set your-history fput your-action your-history
+  ]
+  report (totalscore / rounds)
+end
+
+to-report play [some-strategy my-history your-history] ;
+  report ifelse-value (random-float 1.0 < noise) [random-action][runresult(word some-strategy " my-history your-history")]
+end
+
+to-report always-cooperate [ my-history your-history ]
+  report 0
+end
+
+to-report always-defect [ my-history your-history ]
+  report 1
+end
+
+to-report unforgiving [ my-history your-history ]
+  report (ifelse-value empty? your-history [0] [ifelse-value (first your-history = 1 or first my-history = 1) [1][0]])
+end
+
+to-report play-randomly [ my-history your-history ]
+  report random 2
+end
+
+to-report tit-for-tat [ my-history your-history ]
+  report (ifelse-value empty? your-history [0][first your-history])
+end
+
+to-report Pavlov [ my-history your-history ]
+  let pavlov-strat [0 1]
+  let pavlov-count 0
+  if not empty? my-history [if first your-history = 1 [set pavlov-count pavlov-count + 1]]
+  report item (pavlov-count mod 2) pavlov-strat
+  ;report (ifelse-value (first my-history = 0) [ifelse-value (first my-history = first your-history) [0] [1] ][1]  ) ; if my-action = C and your-action = C,
+end
+
+to-report random-action
+  report random 2
 end
 
 to stratset
   set stratcolor (list ; list + round brackets so that non-literal values (variables) are accepted within lists.
-    (list "always-cooperate: " always-cooperate green) ; with this, the foreach-statement in patchset was made possible.
-    (list "always-defect: " always-defect red)
-    (list "play-randomly: " play-randomly gray)
-    (list "unforgiving: " unforgiving 102)
-    (list "tit-for-tat: " tit-for-tat violet)
-    (list "Pavlov: " Pavlov magenta))
-  set stratlist map [ [x] ->  item 1 x] stratcolor
-  set colorlist map [ [x] -> item 2 x] stratcolor
+    (list "always-cooperate" green) ; with this, the foreach-statement in patchset was made possible.
+    (list "always-defect" red)
+    (list "play-randomly" gray)
+    (list "unforgiving" 102)
+    (list "tit-for-tat" violet)
+    (list "Pavlov" magenta))
+  ; foreach index [ [p] -> let (item p stratlist) (runresult (word "initial-" item p stratlist))]
+  set stratlist map [ [x] ->  item 0 x] stratcolor
+  set colorlist map [ [x] -> item 1 x] stratcolor
   set index n-values length stratlist [ [x] -> x ]
-  set stratsum sum stratlist
+  ; set stratsum sum stratlist
   set payoff (list (list CC-payoff-reward CD-payoff-sucker)(list DC-payoff-temptation DD-payoff-punishment))
 end
+
+
 
 
 
@@ -78,24 +138,24 @@ end
 GRAPHICS-WINDOW
 209
 17
-646
-455
+756
+565
 -1
 -1
-13.0
+4.455
 1
 10
 1
 1
 1
 0
-0
-0
 1
--16
-16
--16
-16
+1
+1
+-60
+60
+-60
+60
 0
 0
 1
@@ -103,9 +163,9 @@ ticks
 30.0
 
 BUTTON
-32
+33
 24
-95
+96
 57
 NIL
 setup
@@ -141,11 +201,11 @@ SLIDER
 105
 195
 138
-always-cooperate
-always-cooperate
+start-always-cooperate
+start-always-cooperate
 0
 100
-37.54
+16.67
 .1
 1
 %
@@ -156,11 +216,11 @@ SLIDER
 147
 195
 180
-always-defect
-always-defect
+start-always-defect
+start-always-defect
 0
 100
-13.28
+16.67
 .1
 1
 %
@@ -171,11 +231,11 @@ SLIDER
 188
 195
 221
-play-randomly
-play-randomly
+start-play-randomly
+start-play-randomly
 0
 100
-24.66
+16.67
 .1
 1
 %
@@ -186,11 +246,11 @@ SLIDER
 306
 196
 339
-Pavlov
-Pavlov
+start-Pavlov
+start-Pavlov
 0
 100
-11.14
+16.67
 .1
 1
 %
@@ -201,11 +261,11 @@ SLIDER
 228
 195
 261
-unforgiving
-unforgiving
+start-unforgiving
+start-unforgiving
 0
 100
-11.71
+16.67
 .1
 1
 %
@@ -216,21 +276,21 @@ SLIDER
 267
 195
 300
-tit-for-tat
-tit-for-tat
+start-tit-for-tat
+start-tit-for-tat
 0
 100
-1.67
+16.67
 .1
 1
 %
 HORIZONTAL
 
 SLIDER
-662
-21
-850
-54
+772
+18
+960
+51
 CC-payoff-reward
 CC-payoff-reward
 0
@@ -242,10 +302,10 @@ points
 HORIZONTAL
 
 SLIDER
-662
-63
-850
-96
+772
+59
+960
+92
 CD-payoff-sucker
 CD-payoff-sucker
 0
@@ -257,25 +317,25 @@ points
 HORIZONTAL
 
 SLIDER
-662
-104
-853
-137
+772
+99
+961
+132
 DC-payoff-temptation
 DC-payoff-temptation
 0
 10
-2.0
+5.0
 1
 1
 points
 HORIZONTAL
 
 SLIDER
-662
-144
-854
-177
+772
+139
+961
+172
 DD-payoff-punishment
 DD-payoff-punishment
 0
@@ -286,35 +346,67 @@ DD-payoff-punishment
 points
 HORIZONTAL
 
-PLOT
-662
-182
-1096
-332
-Proportions
-ticks
+SLIDER
+771
+307
+1008
+340
+iterations
+iterations
+0
+1000
+1000.0
+1
+1
+x
+HORIZONTAL
+
+SLIDER
+771
+343
+1009
+376
+rounds
+rounds
+0
+100
+20.0
+1
+1
+x
+HORIZONTAL
+
+SLIDER
+771
+380
+1010
+413
+noise
+noise
+0
+100
+0.0
+1
+1
+%
+HORIZONTAL
+
+BUTTON
+34
+64
+117
+97
 NIL
-0.0
-100.0
-0.0
-1.0
-true
-true
-"" ""
-PENS
-"always-cooperate" 1.0 0 -11085214 true "" "plot count patches with [pcolor = green] / count patches"
-"always-defect" 1.0 0 -2674135 true "" "plot count patches with [pcolor = red] / count patches"
-"play-randomly" 1.0 0 -7500403 true "" "plot count patches with [pcolor = gray]  / count patches"
-"unforgiving" 1.0 0 -15390905 true "" "plot count patches with [pcolor = 102]  / count patches"
-"tit-for-tat" 1.0 0 -8630108 true "" "plot count patches with [pcolor = violet]  / count patches"
-"Pavlof" 1.0 0 -6459832 true "" "plot count patches with [pcolor = brown]  / count patches"
-
-OUTPUT
-661
-336
-1096
-432
-11
+set-equal
+NIL
+1
+T
+OBSERVER
+NIL
+Q
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
