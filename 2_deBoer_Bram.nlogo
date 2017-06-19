@@ -12,6 +12,11 @@ to setup
   patchset
   set scoretable map [ [s] -> score-row-for s] stratlist
   reset-ticks
+  countpatches
+end
+
+to countpatches
+  foreach index [ [x] -> output-show word (item 0 item x stratcolor) (count patches with [pcolor = item 2 item x stratcolor ]) ]
 end
 
 to go
